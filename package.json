@@ -1,0 +1,27 @@
+{
+  "name": "tsradio",
+  "version": "1.0.0",
+  "description": "Radio Stream via Express",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "@BananaJeanss",
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.7.2",
+    "eslint": "^9.37.0",
+    "prettier": "^3.6.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "music-metadata": "^11.9.0"
+  }
+}
