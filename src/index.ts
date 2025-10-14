@@ -109,6 +109,14 @@ app.get("/metadata", (req, res) => {
   res.json(songInfo);
 });
 
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
+
 if (SHOWINDEXPAGE) {
   app.use(express.static(path.join(process.cwd(), "public")));
 } else {
