@@ -4,6 +4,7 @@ import express from "express";
 import dotenv from "dotenv";
 import { parseFile } from "music-metadata";
 import { spawn } from "child_process";
+import cors from "cors";
 
 dotenv.config();
 
@@ -27,6 +28,11 @@ let songInfo = {
   length: 0,
   genre: "Unknown Genre",
 };
+
+// because otherwise doesn't work in some environments
+app.use(cors({
+  origin: "*",
+}));
 
 const listeners = new Set<express.Response>();
 
