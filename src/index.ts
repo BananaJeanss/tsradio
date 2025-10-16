@@ -8,6 +8,10 @@ import cors from "cors";
 
 dotenv.config();
 
+const PORT = process.env.PORT || 3000;
+const USESHUFFLE = process.env.USESHUFFLE === "true";
+const SHOWINDEXPAGE = process.env.SHOWINDEXPAGE === "true";
+
 const app = express();
 const srcFolder: string =
   process.env.SRCFOLDER || path.join(process.cwd(), "playlist");
@@ -15,10 +19,32 @@ if (!fs.existsSync(srcFolder)) {
   console.error(`Source folder "${srcFolder}" does not exist.`);
   process.exit(1);
 }
-const files = fs.readdirSync(srcFolder).filter((f) => f.endsWith(".mp3"));
-const PORT = process.env.PORT || 3000;
-const USESHUFFLE = process.env.USESHUFFLE === "true";
-const SHOWINDEXPAGE = process.env.SHOWINDEXPAGE === "true";
+
+const files = [] as string[];
+let folderCount = 1;
+
+function scanDirectory(dir: string) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      scanDirectory(fullPath);
+      folderCount++;
+    } else if (
+      entry.isFile() &&
+      path.extname(entry.name).toLowerCase() === ".mp3"
+    ) {
+      files.push(path.relative(srcFolder, fullPath));
+    }
+  }
+}
+
+scanDirectory(srcFolder);
+console.log(
+  `Found ${files.length} .mp3 files in ${folderCount} folders in playlist folder`
+);
 
 let current = 0;
 let songInfo = {
@@ -30,9 +56,11 @@ let songInfo = {
 };
 
 // because otherwise doesn't work in some environments
-app.use(cors({
-  origin: "*",
-}));
+app.use(
+  cors({
+    origin: "*",
+  })
+);
 
 const listeners = new Set<express.Response>();
 
@@ -43,6 +71,11 @@ if (files.length === 0) {
 
 let LastCurrentShuffle = -1;
 let ffmpeg: ReturnType<typeof spawn> | null = null;
+
+if (USESHUFFLE && files.length > 0) {
+  current = Math.floor(Math.random() * files.length);
+  LastCurrentShuffle = current;
+}
 
 async function getSongAndUpdateInfo(filePath: string) {
   try {
@@ -72,7 +105,7 @@ async function playNext() {
     ffmpeg.kill("SIGKILL");
   }
 
-  ffmpeg = spawn("ffmpeg", ["-re", "-i", filePath, "-f", "mp3", "-"]);
+  ffmpeg = spawn("ffmpeg", ["-re", "-i", filePath, "-vn", "-f", "mp3", "-"]);
 
   if (ffmpeg.stdout) {
     ffmpeg.stdout.on("data", (chunk) => {
@@ -121,6 +154,37 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
+});
+
+app.get("/albumcover", (req, res) => {
+  const file = files[current];
+  if (!file) {
+    res.status(404).send("No file currently playing");
+    return;
+  }
+  const filePath = path.join(srcFolder, file);
+
+  parseFile(filePath)
+    .then((metadata) => {
+      if (metadata.common.picture && metadata.common.picture.length > 0) {
+        const picture = metadata.common.picture[0];
+        if (!picture || !picture.data) {
+          res.status(404).send("No album art found");
+          return;
+        }
+        res.writeHead(200, {
+          "Content-Type": picture.format,
+          "Content-Length": picture.data.length,
+        });
+        res.end(picture.data);
+      } else {
+        res.status(404).send("No album art found");
+      }
+    })
+    .catch((err) => {
+      console.error(`Error reading metadata for ${filePath}:`, err);
+      res.status(500).send("Error retrieving album art");
+    });
 });
 
 if (SHOWINDEXPAGE) {
