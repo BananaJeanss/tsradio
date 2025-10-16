@@ -156,6 +156,15 @@ app.get("/health", (req, res) => {
   });
 });
 
+let canUsePlaceholderImage = true;
+let placeholderImage: Buffer;
+try {
+  placeholderImage = fs.readFileSync(path.join(process.cwd(), "src", "public", "placeholder.jpg"));
+} catch (err) {
+  console.warn("Placeholder image not found");
+  canUsePlaceholderImage = false;
+}
+
 app.get("/albumcover", (req, res) => {
   const file = files[current];
   if (!file) {
@@ -169,7 +178,15 @@ app.get("/albumcover", (req, res) => {
       if (metadata.common.picture && metadata.common.picture.length > 0) {
         const picture = metadata.common.picture[0];
         if (!picture || !picture.data) {
-          res.status(404).send("No album art found");
+          if (!canUsePlaceholderImage) {
+            res.status(404).send("No album art available");
+            return;
+          }
+          res.writeHead(200, {
+            "Content-Type": "image/jpg",
+            "Content-Length": placeholderImage.length,
+          });
+          res.end(placeholderImage);
           return;
         }
         res.writeHead(200, {
@@ -178,7 +195,15 @@ app.get("/albumcover", (req, res) => {
         });
         res.end(picture.data);
       } else {
-        res.status(404).send("No album art found");
+        if (!canUsePlaceholderImage) {
+          res.status(404).send("No album art available");
+          return;
+        }
+        res.writeHead(200, {
+          "Content-Type": "image/jpg",
+          "Content-Length": placeholderImage.length,
+        });
+        res.end(placeholderImage);
       }
     })
     .catch((err) => {
